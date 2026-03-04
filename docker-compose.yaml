@@ -1,0 +1,84 @@
+services:
+    postgres:
+        build:
+            context: docker/postgres
+            dockerfile: Dockerfile
+            platforms:
+                - "linux/amd64"
+            tags:
+                - "benchmark/postgres:1.0.0"
+
+        container_name: postgres
+        networks:
+            - benchmark
+        ports:
+            - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+        environment:
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_PORT=${POSTGRES_PORT}
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+        volumes:
+            - postgres:/var/lib/postgresql/data
+            - ./generate_data/dummy_data:/dummy_data
+        restart: on-failure
+
+        healthcheck:
+            test: [ "CMD-SHELL", "psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c 'SELECT 1' || exit 1" ]
+            interval: 5s
+            timeout: 3s
+            retries: 3
+
+        deploy:
+            mode: global
+
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+                window: 120s
+                max_attempts: 3
+
+            resources:
+                limits:
+                    cpus: "4"
+                    memory: 4096M
+                reservations:
+                    cpus: "4"
+                    memory: 2048M
+
+    pgadmin:
+        build:
+            context: docker/pgadmin
+            dockerfile: Dockerfile
+            platforms:
+                - "linux/amd64"
+            tags:
+                - "benchmark/pgadmin:1.0.0"
+
+        container_name: pgadmin
+        networks:
+            - benchmark
+        ports:
+            - "${PGADMIN_PORT}:${PGADMIN_PORT}"
+        volumes:
+            - pgadmin:/var/lib/pgadmin
+        environment:
+            - PGADMIN_PORT=${PGADMIN_PORT:-80}
+            - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}
+            - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+            - PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION=true
+            - PGADMIN_CONFIG_LOGIN_BANNER="Authorized users only."
+            - PGADMIN_CONFIG_CONSOLE_LOG_LEVEL="DEBUG"
+        depends_on:
+            postgres:
+                condition: service_healthy
+
+        restart: unless-stopped
+
+volumes:
+    pgadmin:
+    postgres:
+
+networks:
+    benchmark:
+        driver: bridge
