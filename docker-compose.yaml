@@ -87,7 +87,7 @@ services:
         ports:
             - "${MONGO_PORT}:${MONGO_PORT}"
         volumes:
-            - mongo_data:/data/db
+            - mongo:/data/db
             - ./docker/mongo/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh:ro
             - ./generate_data/dummy_data:/dummy_data
         networks:
@@ -121,7 +121,7 @@ services:
 volumes:
     pgadmin:
     postgres:
-    mongo_data:
+    mongo:
 
 networks:
     benchmark:
