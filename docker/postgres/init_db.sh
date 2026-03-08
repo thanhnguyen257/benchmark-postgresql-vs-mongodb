@@ -65,4 +65,81 @@ psql "$POSTGRES_CONN_STR" \
 psql "$POSTGRES_CONN_STR" \
 -c "\copy orderitems FROM '/dummy_data/orderitems.csv' CSV HEADER"
 
+psql "$POSTGRES_CONN_STR" <<'EOSQL'
+
+CREATE TABLE orders_monthly (
+    order_id BIGINT,
+    user_id BIGINT,
+    order_date TIMESTAMP,
+    total_amount NUMERIC(14,2),
+    status VARCHAR(50)
+) PARTITION BY RANGE (order_date);
+
+CREATE TABLE orders_yearly (
+    order_id BIGINT,
+    user_id BIGINT,
+    order_date TIMESTAMP,
+    total_amount NUMERIC(14,2),
+    status VARCHAR(50)
+) PARTITION BY RANGE (order_date);
+
+-- Monthly partitions
+DO $$
+DECLARE
+    start_date DATE;
+    end_date DATE;
+    d DATE;
+BEGIN
+    SELECT date_trunc('month', MIN(order_date))::date,
+           date_trunc('month', MAX(order_date))::date
+    INTO start_date, end_date
+    FROM orders;
+
+    d := start_date;
+
+    WHILE d <= end_date LOOP
+        EXECUTE format(
+            'CREATE TABLE orders_m_%s PARTITION OF orders_monthly
+             FOR VALUES FROM (%L) TO (%L);',
+            to_char(d,'YYYY_MM'),
+            d,
+            d + INTERVAL '1 month'
+        );
+
+        d := d + INTERVAL '1 month';
+    END LOOP;
+END $$;
+
+-- Yearly partitions
+DO $$
+DECLARE
+    start_year INT;
+    end_year INT;
+    y INT;
+BEGIN
+    SELECT EXTRACT(YEAR FROM MIN(order_date)),
+           EXTRACT(YEAR FROM MAX(order_date))
+    INTO start_year, end_year
+    FROM orders;
+
+    FOR y IN start_year..end_year LOOP
+        EXECUTE format(
+            'CREATE TABLE orders_y_%s PARTITION OF orders_yearly
+             FOR VALUES FROM (%L) TO (%L);',
+            y,
+            y || '-01-01',
+            (y+1) || '-01-01'
+        );
+    END LOOP;
+END $$;
+
+-- Copy data into partition tables
+INSERT INTO orders_monthly
+SELECT order_id,user_id,order_date,total_amount,status FROM orders;
+
+INSERT INTO orders_yearly
+SELECT order_id,user_id,order_date,total_amount,status FROM orders;
+
+EOSQL
+
 echo "PostgreSQL initialization completed!"
