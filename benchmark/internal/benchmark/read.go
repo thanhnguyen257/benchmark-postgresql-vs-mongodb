@@ -10,7 +10,7 @@ import (
 	"benchmark/internal/metrics"
 )
 
-func RunRead(db db.Database, requests int, maxOrder int64) {
+func RunRead(db db.Database, requests int, maxOrder int64, table string) {
 
 	var durations []time.Duration
 	durations = make([]time.Duration, 0, requests)
@@ -38,7 +38,7 @@ func RunRead(db db.Database, requests int, maxOrder int64) {
 
 		start := time.Now()
 
-		err := db.GetOrder(id)
+		err := db.GetOrder(id, table)
 
 		if err != nil {
 			fmt.Println("\nGetOrder error:", err)
