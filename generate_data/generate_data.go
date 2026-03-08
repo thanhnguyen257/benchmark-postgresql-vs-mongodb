@@ -78,7 +78,8 @@ type OrderItem struct {
 }
 
 func main() {
-    rand.Seed(time.Now().UnixNano())
+    // rand.Seed(time.Now().UnixNano())
+    rand.Seed(420) // set for easy reproduce
 
     outputDir := "./generate_data/dummy_data"
     os.MkdirAll(outputDir, os.ModePerm)
